@@ -1,5 +1,6 @@
 package br.com.locadora.locadora.service;
 
+import br.com.locadora.locadora.enums.Message;
 import br.com.locadora.locadora.model.Location;
 import br.com.locadora.locadora.model.Movie;
 import br.com.locadora.locadora.repository.LocationRepository;
@@ -24,27 +25,25 @@ public class LocationService {
 
     public Location create(Location location){
 
-        Location located = location;
+        Location located = new Location();
 
         userService.findById(location.getUser().getId())
-                .orElseThrow(() -> new RuntimeException(String.format("User with id '%s' not found.", location.getUser().getId())));
+                .orElseThrow(Message.CUSTOMER_NOT_FOUND::asBusinessException);
 
-        Optional<Movie> movie = Optional.ofNullable(movieService.findById(location.getMovie().getId())
-                .orElseThrow(() -> new RuntimeException(String.format("Movie with '%s' not found.", location.getMovie().getId()))));
+        Location finalLocated = located;
+        Optional.ofNullable(movieService.findById(location.getMovie().getId())
+                .orElseThrow(Message.MOVIE_NOT_FOUND::asBusinessException))
+                .ifPresent(m -> {
+                    if(m.getQtd() <= 0){
+                        throw new RuntimeException(Message.MOVIE_UNAVAILABLE.getMessage());
+                    }else{
+                        m.setQtd(m.getQtd() - 1);
+                        movieService.updateQtd(location.getMovie().getId(), m.getQtd());
+                        finalLocated.setMovie(m);
+                    }
+                });
 
-        if(movie.get().getQtd()  <= 0){
-            throw new RuntimeException("Filme não disponivel");
-        }
-
-        try {
-            int newQtd = movie.get().getQtd() - 1;
-            movieService.updateQtd(location.getMovie().getId(),newQtd);
-            located = locationRepository.save(location);
-        }catch (RuntimeException re){
-            throw new RuntimeException("Filme não disponivel");
-        }
-
-        return located;
+        return locationRepository.save(location);
     }
 
     public Optional<Location> devolution(Long id){
