@@ -1,9 +1,14 @@
 package br.com.locadora.locadora.service;
 
+import br.com.locadora.locadora.dto.LocationResponseDTO;
+import br.com.locadora.locadora.dto.MovieResponseDTO;
+import br.com.locadora.locadora.dto.UserResponseDTO;
 import br.com.locadora.locadora.enums.Message;
 import br.com.locadora.locadora.model.Location;
 import br.com.locadora.locadora.model.Movie;
+import br.com.locadora.locadora.model.User;
 import br.com.locadora.locadora.repository.LocationRepository;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -23,11 +28,13 @@ public class LocationService {
     @Autowired
     private MovieService movieService;
 
-    public Location create(Location location){
+    public LocationResponseDTO create(Location location){
 
-        Location located = new Location();
+        var located = new Location();
+        var userResponse = new UserResponseDTO();
+        var movieResponse = new MovieResponseDTO();
 
-        userService.findById(location.getUser().getId())
+        var user = userService.findById(location.getUser().getId())
                 .orElseThrow(Message.CUSTOMER_NOT_FOUND::asBusinessException);
 
         Location finalLocated = located;
@@ -43,19 +50,25 @@ public class LocationService {
                     }
                 });
 
-        return locationRepository.save(location);
+        located = locationRepository.save(location);
+        BeanUtils.copyProperties(user, userResponse);
+        BeanUtils.copyProperties(finalLocated.getMovie(), movieResponse);
+
+        return LocationResponseDTO.builder()
+                .id(located.getId())
+                .user(userResponse)
+                .movie(movieResponse)
+                .build();
     }
 
     public Optional<Location> devolution(Long id){
 
-        Optional <Location> devolvido = locationRepository.findById(id)
+        return locationRepository.findById(id)
                 .map(location -> {
                     location.setDateDevolution(LocalDateTime.now());
                     Location returned = locationRepository.save(location);
                     return returned;
                 });
-
-        return devolvido;
 
     }
 }
